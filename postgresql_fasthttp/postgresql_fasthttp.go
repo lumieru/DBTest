@@ -84,13 +84,23 @@ func sizeHandler(ctx *fasthttp.RequestCtx) {
 func queriesHandler(ctx *fasthttp.RequestCtx) {
 	var email string
 	targetID := common.RandID()
-	err := postgresql.Pool.QueryRow("query_id", targetID).Scan(&email)
+	conn, err := postgresql.Pool.Acquire()
+	if err != nil {
+		ctx.Error(fmt.Sprintf("Acquire connection failed:%s\n", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	defer postgresql.Pool.Release(conn)
+
+	err = conn.QueryRow("query_id", targetID).Scan(&email)
 	switch err {
 	case nil:
 	case pgx.ErrNoRows:
 		ctx.Error(fmt.Sprintf("query _id with %d failed:%s\n", targetID, err.Error()), http.StatusNotFound)
+		return
 	default:
 		ctx.Error(fmt.Sprintf("query _id with %d failed:%s\n", targetID, err.Error()), http.StatusInternalServerError)
+		return
 	}
 
 	var _id int32
@@ -98,7 +108,7 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 	var verified, sex bool
 	var gold, version int32
 	var friends []int32
-	err = postgresql.Pool.QueryRow("queries", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
+	err = conn.QueryRow("queries", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
 	switch err {
 	case nil:
 		ctx.Response.SetStatusCode(http.StatusOK)

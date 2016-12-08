@@ -58,13 +58,23 @@ func sizeHandler(w http.ResponseWriter, r *http.Request) {
 func queriesHandler(w http.ResponseWriter, r *http.Request) {
 	var email string
 	targetID := common.RandID()
-	err := postgresql.Pool.QueryRow("query_id", targetID).Scan(&email)
+	conn, err := postgresql.Pool.Acquire()
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Acquire connection failed:%s\n", err.Error()), http.StatusInternalServerError)
+		return
+	}
+
+	defer postgresql.Pool.Release(conn)
+
+	err = conn.QueryRow("query_id", targetID).Scan(&email)
 	switch err {
 	case nil:
 	case pgx.ErrNoRows:
 		http.Error(w, fmt.Sprintf("query _id with %d failed:%s\n", targetID, err.Error()), http.StatusNotFound)
+		return
 	default:
 		http.Error(w, fmt.Sprintf("query _id with %d failed:%s\n", targetID, err.Error()), http.StatusInternalServerError)
+		return
 	}
 
 	var _id int32
@@ -72,7 +82,7 @@ func queriesHandler(w http.ResponseWriter, r *http.Request) {
 	var verified, sex bool
 	var gold, version int32
 	var friends []int32
-	err = postgresql.Pool.QueryRow("queries", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
+	err = conn.QueryRow("queries", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
 	switch err {
 	case nil:
 		fmt.Fprintf(w, "_id=%d,email=%s,name=%s,password=%s,verified=%v,sex=%v,gold=%d,version=%d,friends=%v\n",
