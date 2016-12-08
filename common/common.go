@@ -44,6 +44,10 @@ func RandStringBytesMaskImprSrc(n int) []byte {
 	return b
 }
 
+func RandString(n int) string {
+	return (string)(RandStringBytesMaskImprSrc(n))
+}
+
 func init() {
 	rand.Seed(time.Now().UnixNano())
 }
