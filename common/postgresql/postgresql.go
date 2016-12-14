@@ -5,8 +5,6 @@ import (
 	"github.com/jackc/pgx"
 	"log"
 	"os"
-
-	//	log15 "gopkg.in/inconshreveable/log15.v2"
 )
 
 const (
@@ -17,6 +15,18 @@ var (
 	Pool *pgx.ConnPool
 	tableCreated bool = false
 )
+
+func afterConnectWitoutPrepare(conn *pgx.Conn) (err error) {
+	if !tableCreated {
+		err = prepareTestTable(conn)
+		if err != nil {
+			return
+		}
+		tableCreated = true
+	}
+
+	return nil
+}
 
 // afterConnect creates the prepared statements that this application uses
 func afterConnect(conn *pgx.Conn) (err error) {
@@ -73,7 +83,14 @@ func afterConnect(conn *pgx.Conn) (err error) {
 	return
 }
 
-func InitDatabase() {
+func InitDatabase(prepared bool) {
+	var pFunc func (conn *pgx.Conn) (err error)
+	if prepared {
+		pFunc = afterConnect
+	} else {
+		pFunc = afterConnectWitoutPrepare
+	}
+
 	var err error
 	connPoolConfig := pgx.ConnPoolConfig{
 		ConnConfig: pgx.ConnConfig{
@@ -84,7 +101,7 @@ func InitDatabase() {
 			//	Logger:   log15.New("module", "pgx"),
 		},
 		MaxConnections: maxConnectionCount,
-		AfterConnect:   afterConnect,
+		AfterConnect:   pFunc,
 	}
 	Pool, err = pgx.NewConnPool(connPoolConfig)
 	if err != nil {

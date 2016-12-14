@@ -17,7 +17,7 @@ import (
 func main() {
 	var err error
 
-	postgresql.InitDatabase(true);
+	postgresql.InitDatabase(false);
 
 	s := &fasthttp.Server{
 		Handler: mainHandler,
@@ -50,7 +50,7 @@ func mainHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func insertHandler(ctx *fasthttp.RequestCtx) {
-	if _, err := postgresql.Pool.Exec("insert",
+	if _, err := postgresql.Pool.Exec("INSERT INTO account (email,name,password,verified,sex,gold,version,friends) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)",
 		common.RandStringBytesMaskImprSrc(62), 	//email
 		common.RandStringBytesMaskImprSrc(32), 	//name
 		common.RandStringBytesMaskImprSrc(16),	//password
@@ -70,7 +70,7 @@ func insertHandler(ctx *fasthttp.RequestCtx) {
 
 func sizeHandler(ctx *fasthttp.RequestCtx) {
 	var count int32
-	err := postgresql.Pool.QueryRow("size").Scan(&count)
+	err := postgresql.Pool.QueryRow("SELECT count(*) FROM account").Scan(&count)
 	switch err {
 	case nil:
 		ctx.Response.AppendBodyString(fmt.Sprint("size=", count))
@@ -92,7 +92,7 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 
 	defer postgresql.Pool.Release(conn)
 
-	err = conn.QueryRow("query_id", targetID).Scan(&email)
+	err = conn.QueryRow("SELECT email FROM account WHERE _id = $1", targetID).Scan(&email)
 	switch err {
 	case nil:
 	case pgx.ErrNoRows:
@@ -108,7 +108,7 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 	var verified, sex bool
 	var gold, version int32
 	var friends []int32
-	err = conn.QueryRow("queries", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
+	err = conn.QueryRow("SELECT * FROM account WHERE email = $1", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
 	switch err {
 	case nil:
 		ctx.Response.SetStatusCode(http.StatusOK)
@@ -122,7 +122,7 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func updateHandler(ctx *fasthttp.RequestCtx) {
-	if _, err := postgresql.Pool.Exec("update",
+	if _, err := postgresql.Pool.Exec("UPDATE account SET password = $1, version = version + 1 WHERE _id = $2",
 		common.RandStringBytesMaskImprSrc(16),
 		common.RandID(),
 	); err == nil {
@@ -133,7 +133,7 @@ func updateHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func arrayHandler(ctx *fasthttp.RequestCtx) {
-	if _, err := postgresql.Pool.Exec("array",
+	if _, err := postgresql.Pool.Exec("UPDATE account SET friends = array_append(friends, $1), version = version + 1 WHERE _id = $2",
 		common.RandInt32(),
 		common.RandID(),
 	); err == nil {

@@ -17,7 +17,7 @@ import (
 func main() {
 	var err error
 
-	postgresql.InitDatabase(true);
+	postgresql.InitDatabase(false);
 
 	s := &fasthttp.Server{
 		Handler: mainHandler,
@@ -50,7 +50,7 @@ func mainHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func insertHandler(ctx *fasthttp.RequestCtx) {
-	if _, err := postgresql.Pool.Exec("insert",
+	sql := fmt.Sprintf("INSERT INTO account (email,name,password,verified,sex,gold,version,friends) VALUES ('%s','%s','%s',%t,%t,%d,%d,'{%s}');",
 		common.RandStringBytesMaskImprSrc(62), 	//email
 		common.RandStringBytesMaskImprSrc(32), 	//name
 		common.RandStringBytesMaskImprSrc(16),	//password
@@ -58,8 +58,9 @@ func insertHandler(ctx *fasthttp.RequestCtx) {
 		common.RandBool(),						//sex
 		common.RandInt32(),					  	//glod
 		common.RandInt32(),					  	//version
-		common.RandInt32Array(),				//friends
-	); err == nil {
+		common.RandInt32ArrayString(),				//friends
+	 )
+	if _, err := postgresql.Pool.Exec(sql); err == nil {
 		ctx.Response.SetStatusCode(http.StatusOK)
 		common.RowsInserted ++
 		ctx.Response.AppendBodyString(fmt.Sprint("rowsInserted=", common.RowsInserted))
@@ -70,7 +71,7 @@ func insertHandler(ctx *fasthttp.RequestCtx) {
 
 func sizeHandler(ctx *fasthttp.RequestCtx) {
 	var count int32
-	err := postgresql.Pool.QueryRow("size").Scan(&count)
+	err := postgresql.Pool.QueryRow("SELECT count(*) FROM account").Scan(&count)
 	switch err {
 	case nil:
 		ctx.Response.AppendBodyString(fmt.Sprint("size=", count))
@@ -92,7 +93,7 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 
 	defer postgresql.Pool.Release(conn)
 
-	err = conn.QueryRow("query_id", targetID).Scan(&email)
+	err = conn.QueryRow(fmt.Sprintf("SELECT email FROM account WHERE _id=%d", targetID)).Scan(&email)
 	switch err {
 	case nil:
 	case pgx.ErrNoRows:
@@ -108,7 +109,7 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 	var verified, sex bool
 	var gold, version int32
 	var friends []int32
-	err = conn.QueryRow("queries", email).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
+	err = conn.QueryRow(fmt.Sprintf("SELECT * FROM account WHERE email='%s'", email)).Scan(&_id, &email, &name, &password, &verified, &sex, &gold, &version, &friends)
 	switch err {
 	case nil:
 		ctx.Response.SetStatusCode(http.StatusOK)
@@ -122,10 +123,9 @@ func queriesHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func updateHandler(ctx *fasthttp.RequestCtx) {
-	if _, err := postgresql.Pool.Exec("update",
+	if _, err := postgresql.Pool.Exec(fmt.Sprintf("UPDATE account SET password='%s', version=version+1 WHERE _id=%d",
 		common.RandStringBytesMaskImprSrc(16),
-		common.RandID(),
-	); err == nil {
+		common.RandID(),)); err == nil {
 		ctx.Response.SetStatusCode(http.StatusOK)
 	} else {
 		ctx.Error("Internal server error", http.StatusInternalServerError)
@@ -133,10 +133,9 @@ func updateHandler(ctx *fasthttp.RequestCtx) {
 }
 
 func arrayHandler(ctx *fasthttp.RequestCtx) {
-	if _, err := postgresql.Pool.Exec("array",
+	if _, err := postgresql.Pool.Exec(fmt.Sprintf("UPDATE account SET friends=array_append(friends,%d), version=version+1 WHERE _id=%d",
 		common.RandInt32(),
-		common.RandID(),
-	); err == nil {
+		common.RandID())); err == nil {
 		ctx.Response.SetStatusCode(http.StatusOK)
 	} else {
 		ctx.Error("Internal server error", http.StatusInternalServerError)

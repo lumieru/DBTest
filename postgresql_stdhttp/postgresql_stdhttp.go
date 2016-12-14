@@ -12,7 +12,7 @@ import (
 )
 
 func main() {
-	postgresql.InitDatabase();
+	postgresql.InitDatabase(true);
 
 	http.HandleFunc("/insert", insertHandler)
 	http.HandleFunc("/queries", queriesHandler)

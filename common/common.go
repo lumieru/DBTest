@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 	"math/rand"
+	"bytes"
+	"strconv"
 )
 
 var (
@@ -71,6 +73,19 @@ func RandInt32Array() []int32 {
 	}
 
 	return res
+}
+
+func RandInt32ArrayString() string {
+	arrlen := int(rand.Uint32() % 32)
+	buff := bytes.NewBuffer(make([]byte, 0, arrlen * 11))
+	for i:=0; i<arrlen; i++ {
+		buff.WriteString(strconv.FormatInt(int64(rand.Int31()), 10))
+		if i != arrlen-1 {
+			buff.WriteString(",")
+		}
+	}
+
+	return buff.String()
 }
 
 func RandID() int32 {
